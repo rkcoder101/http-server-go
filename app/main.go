@@ -38,11 +38,12 @@ func main() {
 	// we will get hit by a GET req
 	// we need to write to the client, with headers and response body
 	url := url_parser(&conn)
-	if url[0:6] != "/echo/" {
+	switch {
+	case url == "/":
+		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	case strings.HasPrefix(url,"/echo/"):
+		conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(url[6:]), url[6:])))
+	default:
 		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-	} else {
-		str := url[6:]
-		res := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(str), str)
-		conn.Write([]byte(res))
 	}
 }
