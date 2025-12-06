@@ -6,7 +6,9 @@ import (
 	"net"
 	"os"
 	"strings"
+	"flag"
 )
+var file_directory string
 
 func req_parser(conn *net.Conn) string {
 	buffer := make([]byte, 1024)
@@ -34,7 +36,7 @@ func userAgent_parser(req string) (string, error) {
 	return "", errors.New("User-Agent not found")
 }
 func serve_file(file string) (string, error) {
-	path := "/tmp/" + file
+	path := file_directory + file
 	fmt.Println(path)
 	dat, err := os.ReadFile(path)
 	if err != nil {
@@ -81,7 +83,8 @@ func main() {
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
-		}
+		}		
+		flag.StringVar(&file_directory, "directory", "/tmp/", "boingboing")
 		go handleConnection(&conn)
 	}
 }
