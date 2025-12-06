@@ -28,7 +28,7 @@ func userAgent_parser(req string) (string, error) {
 	req_splitted := strings.SplitSeq(req, "\r\n")
 	for v := range req_splitted {
 		if strings.HasPrefix(v, "User-Agent") {
-			return v[11:], nil
+			return v[12:], nil
 		}
 	}
 	return "", errors.New("User-Agent not found")
