@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"path/filepath"
 )
 
 var file_directory string
@@ -55,21 +56,10 @@ func serve_file(file string) (string, error) {
 	return string(dat), nil
 }
 func write_file(req_body string, file string) error {
-	path:=file_directory+file
+	path := filepath.Join(file_directory, file)
 	// write file at given path with content of req_body
 	fmt.Println(path)
-	_,err:=os.Create(path)
-	if err!=nil{
-		fmt.Println("Error creating the file")
-		return err
-	}
-	data:=[]byte(req_body)
-	err=os.WriteFile(path,data,0644)
-	if err!=nil{
-		fmt.Println("Error writing to the file")
-		return err
-	}	
-	return nil
+	return os.WriteFile(path, []byte(req_body), 0644)
 }
 func handleConnection(conn *net.Conn) {
 	req := req_parser(conn)
