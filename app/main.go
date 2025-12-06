@@ -25,6 +25,7 @@ func url_parser(req string) string {
 	req_splitted := strings.Split(req, "\r\n")
 	req_line := strings.Split(req_splitted[0], " ")
 	url := req_line[1]
+	fmt.Println(req)
 	return url
 }
 func userAgent_parser(req string) (string, error) {
@@ -36,14 +37,40 @@ func userAgent_parser(req string) (string, error) {
 	}
 	return "", errors.New("User-Agent not found")
 }
+func method_parser(req string) string {
+	req_splitted := strings.Split(req, "\r\n")
+	req_line := strings.Split(req_splitted[0], " ")
+	method := req_line[0]
+	fmt.Println(req)
+	return method
+}
+func req_body_parser(req string) string{
+	req_splitted := strings.Split(req, "\r\n")
+	return req_splitted[len(req_splitted)-1]
+}
 func serve_file(file string) (string, error) {
 	path := file_directory + file
-	fmt.Println(path)
 	dat, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
 	return string(dat), nil
+}
+func write_file(req_body string, file string) error {
+	path:=file_directory+file
+	// write file at given path with content of req_body
+	_,err:=os.Create(path)
+	if err!=nil{
+		fmt.Println("Error creating the file")
+		return err
+	}
+	data:=[]byte(req_body)
+	err=os.WriteFile(path,data,0644)
+	if err!=nil{
+		fmt.Println("Error writing to the file")
+		return err
+	}	
+	return nil
 }
 func handleConnection(conn *net.Conn) {
 	req := req_parser(conn)
@@ -57,12 +84,19 @@ func handleConnection(conn *net.Conn) {
 		user_agent, _ := userAgent_parser(req)
 		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
 	case strings.HasPrefix(url, "/files/"):
-		fmt.Println("hehe")
-		file, err := serve_file(url[7:])
-		if err != nil {
-			(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-		} else {
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)))
+		method := method_parser(req)
+		switch {
+		case method == "GET":
+			file, err := serve_file(url[7:])
+			if err != nil {
+				(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			} else {
+				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)))
+			}
+		case method == "POST":
+			req_body:=req_body_parser(req)
+			_=write_file(req_body,url[7:])
+			(*conn).Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 		}
 
 	default:
