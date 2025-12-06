@@ -95,6 +95,7 @@ func handleConnection(conn *net.Conn) {
 			}
 		case method == "POST":
 			req_body:=req_body_parser(req)
+			fmt.Println(req_body)
 			_=write_file(req_body,url[7:])
 			(*conn).Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 		}
