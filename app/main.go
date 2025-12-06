@@ -33,6 +33,15 @@ func userAgent_parser(req string) (string, error) {
 	}
 	return "", errors.New("User-Agent not found")
 }
+func serve_file(file string) (string, error) {
+	path := "/tmp/" + file
+	fmt.Println(path)
+	dat, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(dat), nil
+}
 func handleConnection(conn *net.Conn) {
 	req := req_parser(conn)
 	url := url_parser(req)
@@ -44,6 +53,15 @@ func handleConnection(conn *net.Conn) {
 	case strings.HasPrefix(url, "/user-agent"):
 		user_agent, _ := userAgent_parser(req)
 		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
+	case strings.HasPrefix(url, "/files/"):
+		fmt.Println("hehe")
+		file, err := serve_file(url[7:])
+		if err != nil {
+			(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		} else {
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)))
+		}
+
 	default:
 		(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
