@@ -2,12 +2,13 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"strings"
-	"flag"
 )
+
 var file_directory string
 
 func req_parser(conn *net.Conn) string {
@@ -70,6 +71,8 @@ func handleConnection(conn *net.Conn) {
 }
 func main() {
 
+	flag.StringVar(&file_directory, "directory", "", "boingboing")
+	flag.Parse()
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -83,8 +86,7 @@ func main() {
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
-		}		
-		flag.StringVar(&file_directory, "directory", "", "boingboing")
+		}
 		go handleConnection(&conn)
 	}
 }
