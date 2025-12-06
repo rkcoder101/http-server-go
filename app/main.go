@@ -25,7 +25,6 @@ func url_parser(req string) string {
 	req_splitted := strings.Split(req, "\r\n")
 	req_line := strings.Split(req_splitted[0], " ")
 	url := req_line[1]
-	fmt.Println(req)
 	return url
 }
 func userAgent_parser(req string) (string, error) {
@@ -41,7 +40,6 @@ func method_parser(req string) string {
 	req_splitted := strings.Split(req, "\r\n")
 	req_line := strings.Split(req_splitted[0], " ")
 	method := req_line[0]
-	fmt.Println(req)
 	return method
 }
 func req_body_parser(req string) string{
@@ -59,6 +57,7 @@ func serve_file(file string) (string, error) {
 func write_file(req_body string, file string) error {
 	path:=file_directory+file
 	// write file at given path with content of req_body
+	fmt.Println(path)
 	_,err:=os.Create(path)
 	if err!=nil{
 		fmt.Println("Error creating the file")
@@ -85,6 +84,7 @@ func handleConnection(conn *net.Conn) {
 		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
 	case strings.HasPrefix(url, "/files/"):
 		method := method_parser(req)
+		fmt.Println(method)
 		switch {
 		case method == "GET":
 			file, err := serve_file(url[7:])
