@@ -14,12 +14,12 @@ var file_directory string
 
 func req_parser(conn *net.Conn) string {
 	buffer := make([]byte, 1024)
-	_, err := (*conn).Read(buffer)
+	n, err := (*conn).Read(buffer)
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
-	req := string(buffer)
+	req := string(buffer[:n])
 	return req
 }
 func url_parser(req string) string {
