@@ -84,7 +84,7 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}		
-		flag.StringVar(&file_directory, "directory", "/tmp/", "boingboing")
+		flag.StringVar(&file_directory, "directory", "", "boingboing")
 		go handleConnection(&conn)
 	}
 }
