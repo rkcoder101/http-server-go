@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"compress/gzip"
+	"bytes"
 )
 
 var file_directory string
@@ -26,8 +28,14 @@ func serve_file(file string) (string, error) {
 }
 func write_file(req_body string, file string) error {
 	path := filepath.Join(file_directory, file)
-	fmt.Println(path)
 	return os.WriteFile(path, []byte(req_body), 0644)
+}
+func gzip_compress(s string) []byte {
+	var buffer bytes.Buffer
+	w := gzip.NewWriter(&buffer)
+	w.Write([]byte(s))
+	w.Close()
+	return buffer.Bytes()
 }
 func parseRequest(conn *net.Conn) (Request, error) {
 	buffer := make([]byte, 1024)
@@ -88,7 +96,9 @@ func handleConnection(conn *net.Conn) {
 			}
 		}
 		if  gzip_present{
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))
+			compressed:=gzip_compress(req.body)
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n", len(compressed))))
+			(*conn).Write(compressed)
 		} else {
 			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))			
 		}
