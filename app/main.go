@@ -77,9 +77,9 @@ func handleConnection(conn *net.Conn) {
 		(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	case strings.HasPrefix(req.url, "/echo/"):
 		if req.headers["Accept-Encoding"] == "invalid-encoding" {
-			(*conn).Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n"))
+			(*conn).Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n"))
 		} else {
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: %s", req.headers["Accept-Encoding"])))
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding:\r\n\r\n %s", req.headers["Accept-Encoding"])))
 		}
 
 	case strings.HasPrefix(req.url, "/user-agent"):
