@@ -1,52 +1,21 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"os"
-	"strings"
 	"path/filepath"
+	"strings"
 )
 
 var file_directory string
 
-func req_parser(conn *net.Conn) string {
-	buffer := make([]byte, 1024)
-	n, err := (*conn).Read(buffer)
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-	req := string(buffer[:n])
-	return req
+type Request struct {
+	url, method, body string
+	headers           map[string]string
 }
-func url_parser(req string) string {
-	req_splitted := strings.Split(req, "\r\n")
-	req_line := strings.Split(req_splitted[0], " ")
-	url := req_line[1]
-	return url
-}
-func userAgent_parser(req string) (string, error) {
-	req_splitted := strings.SplitSeq(req, "\r\n")
-	for v := range req_splitted {
-		if strings.HasPrefix(v, "User-Agent") {
-			return v[12:], nil
-		}
-	}
-	return "", errors.New("User-Agent not found")
-}
-func method_parser(req string) string {
-	req_splitted := strings.Split(req, "\r\n")
-	req_line := strings.Split(req_splitted[0], " ")
-	method := req_line[0]
-	return method
-}
-func req_body_parser(req string) string{
-	req_splitted := strings.Split(req, "\r\n")
-	return req_splitted[len(req_splitted)-1]
-}
+
 func serve_file(file string) (string, error) {
 	path := file_directory + file
 	dat, err := os.ReadFile(path)
@@ -61,32 +30,68 @@ func write_file(req_body string, file string) error {
 	fmt.Println(path)
 	return os.WriteFile(path, []byte(req_body), 0644)
 }
+func parseRequest(conn *net.Conn) (Request, error) {
+	buffer := make([]byte, 1024)
+	n, err := (*conn).Read(buffer)
+	if err != nil {
+		fmt.Println("Error accepting connection: ", err.Error())
+		os.Exit(1)
+	}
+	raw := string(buffer[:n])
+	raw_splitted := strings.Split(raw, "\r\n")
+	req_line := strings.Split(raw_splitted[0], " ")
+	// method
+	method := req_line[0]
+	// url
+	url := req_line[1]
+	// headers
+	headers := make(map[string]string)
+	i := 1
+	for ; i < len(raw_splitted); i++ {
+		if raw_splitted[i] == "" {
+			break
+		}
+		x := strings.SplitN(raw_splitted[i], ": ", 2)
+		if len(x) == 2 {
+			headers[x[0]] = x[1]
+		}
+	}
+	// body
+	body := strings.Join(raw_splitted[i+1:], "\r\n")
+	return Request{
+		url:     url,
+		method:  method,
+		headers: headers,
+		body: body, 
+	}, nil
+
+}
 func handleConnection(conn *net.Conn) {
-	req := req_parser(conn)
-	url := url_parser(req)
+	defer (*conn).Close()
+	req,err:=parseRequest(conn)
+	if err!=nil{
+		fmt.Println("Error in parsing request")
+		return 
+	}
 	switch {
-	case url == "/":
+	case req.url == "/":
 		(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-	case strings.HasPrefix(url, "/echo/"):
-		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(url[6:]), url[6:])))
-	case strings.HasPrefix(url, "/user-agent"):
-		user_agent, _ := userAgent_parser(req)
+	case strings.HasPrefix(req.url, "/echo/"):
+		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.url[6:]), req.url[6:])))
+	case strings.HasPrefix(req.url, "/user-agent"):
+		user_agent:=req.headers["User-Agent"]
 		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
-	case strings.HasPrefix(url, "/files/"):
-		method := method_parser(req)
-		fmt.Println(method)
+	case strings.HasPrefix(req.url, "/files/"):
 		switch {
-		case method == "GET":
-			file, err := serve_file(url[7:])
+		case req.method == "GET":
+			file, err := serve_file(req.url[7:])
 			if err != nil {
 				(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 			} else {
 				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)))
 			}
-		case method == "POST":
-			req_body:=req_body_parser(req)
-			fmt.Println(req_body)
-			_=write_file(req_body,url[7:])
+		case req.method == "POST":
+			_ = write_file(req.body, req.url[7:])
 			(*conn).Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 		}
 
@@ -96,7 +101,7 @@ func handleConnection(conn *net.Conn) {
 }
 func main() {
 
-	flag.StringVar(&file_directory, "directory", "", "boingboing")
+	flag.StringVar(&file_directory, "directory", "", "directory for recieving/writing files")
 	flag.Parse()
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
