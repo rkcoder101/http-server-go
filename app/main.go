@@ -1,14 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"compress/gzip"
-	"bytes"
 )
 
 var file_directory string
@@ -77,7 +77,6 @@ func parseRequest(conn *net.Conn) (Request, error) {
 
 }
 func handleConnection(conn *net.Conn) {
-	defer (*conn).Close()
 	req, err := parseRequest(conn)
 	if err != nil {
 		fmt.Println("Error in parsing request")
@@ -88,19 +87,19 @@ func handleConnection(conn *net.Conn) {
 		(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	case strings.HasPrefix(req.url, "/echo/"):
 		req.body = req.url[6:]
-		gzip_present:=false
-		for _,v :=range req.headers["Accept-Encoding"]{
-			if (v=="gzip"){
-				gzip_present=true
+		gzip_present := false
+		for _, v := range req.headers["Accept-Encoding"] {
+			if v == "gzip" {
+				gzip_present = true
 				break
 			}
 		}
-		if  gzip_present{
-			compressed:=gzip_compress(req.body)
+		if gzip_present {
+			compressed := gzip_compress(req.body)
 			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n", len(compressed))))
 			(*conn).Write(compressed)
 		} else {
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))			
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))
 		}
 
 	case strings.HasPrefix(req.url, "/user-agent"):
@@ -143,5 +142,6 @@ func main() {
 			os.Exit(1)
 		}
 		go handleConnection(&conn)
+		fmt.Println("Connection closed")
 	}
 }
