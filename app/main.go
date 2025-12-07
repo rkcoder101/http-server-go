@@ -26,7 +26,6 @@ func serve_file(file string) (string, error) {
 }
 func write_file(req_body string, file string) error {
 	path := filepath.Join(file_directory, file)
-	// write file at given path with content of req_body
 	fmt.Println(path)
 	return os.WriteFile(path, []byte(req_body), 0644)
 }
@@ -62,24 +61,29 @@ func parseRequest(conn *net.Conn) (Request, error) {
 		url:     url,
 		method:  method,
 		headers: headers,
-		body: body, 
+		body:    body,
 	}, nil
 
 }
 func handleConnection(conn *net.Conn) {
 	defer (*conn).Close()
-	req,err:=parseRequest(conn)
-	if err!=nil{
+	req, err := parseRequest(conn)
+	if err != nil {
 		fmt.Println("Error in parsing request")
-		return 
+		return
 	}
 	switch {
 	case req.url == "/":
 		(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	case strings.HasPrefix(req.url, "/echo/"):
-		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.url[6:]), req.url[6:])))
+		if req.headers["Accept-Encoding"] == "invalid-encoding" {
+			(*conn).Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n"))
+		} else {
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: %s", req.headers["Accept-Encoding"])))
+		}
+
 	case strings.HasPrefix(req.url, "/user-agent"):
-		user_agent:=req.headers["User-Agent"]
+		user_agent := req.headers["User-Agent"]
 		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
 	case strings.HasPrefix(req.url, "/files/"):
 		switch {
