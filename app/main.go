@@ -118,7 +118,6 @@ func handleConnection(conn *net.Conn) {
 			_ = write_file(req.body, req.url[7:])
 			(*conn).Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
 		}
-
 	default:
 		(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
@@ -141,7 +140,8 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		go handleConnection(&conn)
-		fmt.Println("Connection closed")
+		for {
+			go handleConnection(&conn)
+		}
 	}
 }
