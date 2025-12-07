@@ -13,7 +13,7 @@ var file_directory string
 
 type Request struct {
 	url, method, body string
-	headers           map[string]string
+	headers           map[string][]string
 }
 
 func serve_file(file string) (string, error) {
@@ -44,15 +44,18 @@ func parseRequest(conn *net.Conn) (Request, error) {
 	// url
 	url := req_line[1]
 	// headers
-	headers := make(map[string]string)
+	headers := make(map[string][]string)
 	i := 1
 	for ; i < len(raw_splitted); i++ {
 		if raw_splitted[i] == "" {
 			break
 		}
-		x := strings.SplitN(raw_splitted[i], ": ", 2)
-		if len(x) == 2 {
-			headers[x[0]] = x[1]
+		x := strings.SplitN(raw_splitted[i], ": ", 2) // Header: option1, option2, option3....
+		if len(x) >= 2 {
+			y := strings.SplitSeq(x[1], ", ")
+			for v := range y {
+				headers[x[0]] = append(headers[x[0]], v)
+			}
 		}
 	}
 	// body
@@ -76,11 +79,18 @@ func handleConnection(conn *net.Conn) {
 	case req.url == "/":
 		(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	case strings.HasPrefix(req.url, "/echo/"):
-		req.body=req.url[6:]
-		if req.headers["Accept-Encoding"] == "invalid-encoding" {
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body),req.body)))
+		req.body = req.url[6:]
+		gzip_present:=false
+		for _,v :=range req.headers["Accept-Encoding"]{
+			if (v=="gzip"){
+				gzip_present=true
+				break
+			}
+		}
+		if  gzip_present{
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))
 		} else {
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: %s \r\nContent-Length: %d\r\n\r\n%s", req.headers["Accept-Encoding"], len(req.body), req.body)))
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))			
 		}
 
 	case strings.HasPrefix(req.url, "/user-agent"):
