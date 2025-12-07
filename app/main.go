@@ -42,7 +42,7 @@ func parseRequest(conn *net.Conn) (Request, error) {
 	n, err := (*conn).Read(buffer)
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+		return Request{},err
 	}
 	raw := string(buffer[:n])
 	raw_splitted := strings.Split(raw, "\r\n")
