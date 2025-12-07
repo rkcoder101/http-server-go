@@ -94,7 +94,7 @@ func handleConnection(conn *net.Conn) {
 		}
 
 	case strings.HasPrefix(req.url, "/user-agent"):
-		user_agent := req.headers["User-Agent"]
+		user_agent := req.headers["User-Agent"][0]
 		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
 	case strings.HasPrefix(req.url, "/files/"):
 		switch {
