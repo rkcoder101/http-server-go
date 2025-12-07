@@ -76,50 +76,52 @@ func parseRequest(conn *net.Conn) (Request, error) {
 	}, nil
 
 }
-func handleConnection(conn *net.Conn) {
-	req, err := parseRequest(conn)
-	if err != nil {
-		fmt.Println("Error in parsing request")
-		return
-	}
-	switch {
-	case req.url == "/":
-		(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-	case strings.HasPrefix(req.url, "/echo/"):
-		req.body = req.url[6:]
-		gzip_present := false
-		for _, v := range req.headers["Accept-Encoding"] {
-			if v == "gzip" {
-				gzip_present = true
-				break
-			}
+func handleConnections(conn *net.Conn) {
+	defer (*conn).Close()
+	for {
+		req, err := parseRequest(conn)
+		if err != nil {
+			return
 		}
-		if gzip_present {
-			compressed := gzip_compress(req.body)
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n", len(compressed))))
-			(*conn).Write(compressed)
-		} else {
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))
-		}
-
-	case strings.HasPrefix(req.url, "/user-agent"):
-		user_agent := req.headers["User-Agent"][0]
-		(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
-	case strings.HasPrefix(req.url, "/files/"):
 		switch {
-		case req.method == "GET":
-			file, err := serve_file(req.url[7:])
-			if err != nil {
-				(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-			} else {
-				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)))
+		case req.url == "/":
+			(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		case strings.HasPrefix(req.url, "/echo/"):
+			req.body = req.url[6:]
+			gzip_present := false
+			for _, v := range req.headers["Accept-Encoding"] {
+				if v == "gzip" {
+					gzip_present = true
+					break
+				}
 			}
-		case req.method == "POST":
-			_ = write_file(req.body, req.url[7:])
-			(*conn).Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+			if gzip_present {
+				compressed := gzip_compress(req.body)
+				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n", len(compressed))))
+				(*conn).Write(compressed)
+			} else {
+				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))
+			}
+
+		case strings.HasPrefix(req.url, "/user-agent"):
+			user_agent := req.headers["User-Agent"][0]
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
+		case strings.HasPrefix(req.url, "/files/"):
+			switch {
+			case req.method == "GET":
+				file, err := serve_file(req.url[7:])
+				if err != nil {
+					(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+				} else {
+					(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)))
+				}
+			case req.method == "POST":
+				_ = write_file(req.body, req.url[7:])
+				(*conn).Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+			}
+		default:
+			(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 		}
-	default:
-		(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 	}
 }
 func main() {
@@ -140,8 +142,6 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		for {
-			go handleConnection(&conn)
-		}
+		go handleConnections(&conn)
 	}
 }
