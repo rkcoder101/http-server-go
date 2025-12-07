@@ -37,12 +37,19 @@ func gzip_compress(s string) []byte {
 	w.Close()
 	return buffer.Bytes()
 }
+func (r *Request) checkClose() bool {
+	v, ok := r.headers["Connection"]
+	if ok && v[0] == "close" {
+		return true
+	}
+	return false
+}
 func parseRequest(conn *net.Conn) (Request, error) {
 	buffer := make([]byte, 1024)
 	n, err := (*conn).Read(buffer)
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
-		return Request{},err
+		return Request{}, err
 	}
 	raw := string(buffer[:n])
 	raw_splitted := strings.Split(raw, "\r\n")
@@ -83,9 +90,15 @@ func handleConnections(conn *net.Conn) {
 		if err != nil {
 			return
 		}
+		close_header := ""
+		close := false
+		if req.checkClose() {
+			close_header = "Connection: close\r\n"
+			close = true
+		}
 		switch {
 		case req.url == "/":
-			(*conn).Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\n%s\r\n", close_header)))
 		case strings.HasPrefix(req.url, "/echo/"):
 			req.body = req.url[6:]
 			gzip_present := false
@@ -97,30 +110,33 @@ func handleConnections(conn *net.Conn) {
 			}
 			if gzip_present {
 				compressed := gzip_compress(req.body)
-				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n", len(compressed))))
+				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n%s\r\n", len(compressed), close_header)))
 				(*conn).Write(compressed)
 			} else {
-				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(req.body), req.body)))
+				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n%s\r\n%s", len(req.body), close_header, req.body)))
 			}
 
 		case strings.HasPrefix(req.url, "/user-agent"):
 			user_agent := req.headers["User-Agent"][0]
-			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(user_agent), user_agent)))
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n%s\r\n%s", len(user_agent), close_header, user_agent)))
 		case strings.HasPrefix(req.url, "/files/"):
 			switch {
 			case req.method == "GET":
 				file, err := serve_file(req.url[7:])
 				if err != nil {
-					(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+					(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 404 Not Found\r\n%s\r\n", close_header))) 
 				} else {
-					(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)))
+					(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n%s\r\n%s", len(file),close_header ,file)))
 				}
 			case req.method == "POST":
 				_ = write_file(req.body, req.url[7:])
-				(*conn).Write([]byte("HTTP/1.1 201 Created\r\n\r\n"))
+				(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 201 Created\r\n%s\r\n", close_header)))
 			}
 		default:
-			(*conn).Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			(*conn).Write([]byte(fmt.Sprintf("HTTP/1.1 404 Not Found\r\n%s\r\n", close_header)))
+		}
+		if close {
+			return
 		}
 	}
 }
